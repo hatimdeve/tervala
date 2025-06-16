@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Arbutus+Slab&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400;8..144,700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+html, body, #root {
+    height: 100%;
+    margin: 0;
+    background-color: var(--background);
+    color: var(--foreground);
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    font-family: 'Inter', Arial, sans-serif;
+}
+
+/* Ajout de la règle spécifique pour la classe font-space */
+.font-space {
+    font-family: 'Space Grotesk', sans-serif !important;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.129 0.042 264.695);
+    
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.129 0.042 264.695);
+    
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.129 0.042 264.695);
+    
+    --primary: oklch(0.208 0.042 265.755);
+    --primary-foreground: oklch(0.984 0.003 247.858);
+    
+    --secondary: oklch(0.968 0.007 247.896);
+    --secondary-foreground: oklch(0.208 0.042 265.755);
+    
+    --muted: oklch(0.968 0.007 247.896);
+    --muted-foreground: oklch(0.554 0.046 257.417);
+    
+    --accent: oklch(0.968 0.007 247.896);
+    --accent-foreground: oklch(0.208 0.042 265.755);
+    
+    --destructive: oklch(0.577 0.245 27.325);
+    
+    --border: oklch(0.929 0.013 255.508);
+    --input: oklch(0.929 0.013 255.508);
+    --ring: oklch(0.704 0.04 256.788);
+    
+    --sidebar: oklch(0.984 0.003 247.858);
+    --sidebar-foreground: oklch(0.129 0.042 264.695);
+  }
+
+  .dark {
+    --background: #18181b;
+    --foreground: #ffffff;
+    
+    --card: #27272a;
+    --card-foreground: #ffffff;
+    
+    --popover: #27272a;
+    --popover-foreground: #ffffff;
+    
+    --primary: #3b82f6;
+    --primary-foreground: #ffffff;
+    
+    --secondary: #3f3f46;
+    --secondary-foreground: #ffffff;
+    
+    --muted: #3f3f46;
+    --muted-foreground: #a1a1aa;
+    
+    --accent: #3f3f46;
+    --accent-foreground: #ffffff;
+    
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    
+    --border: #27272a;
+    --input: #3f3f46;
+    --ring: #3b82f6;
+    
+    --sidebar: #18181b;
+    --sidebar-foreground: #ffffff;
+  }
+}

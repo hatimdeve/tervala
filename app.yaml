@@ -1,0 +1,37 @@
+name: tervela
+services:
+  - name: frontend
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: Nd1188/TervelA
+    source_dir: frontend
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: REACT_APP_ENV
+        value: production
+      - key: REACT_APP_NAME
+        value: TervelA
+      - key: REACT_APP_VERSION
+        value: 1.0.0
+      - key: REACT_APP_API_URL
+        value: ${_self.BACKEND_URL}
+    build_command: npm install && npm run build
+    run_command: npm start
+
+  - name: backend
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: Nd1188/TervelA
+    source_dir: app
+    envs:
+      - key: PYTHON_VERSION
+        value: "3.9"
+      - key: OPENAI_API_KEY
+        value: ${OPENAI_API_KEY}
+      - key: PORT
+        value: "8080"
+    build_command: pip install -r requirements.txt
+    run_command: uvicorn main:app --host 0.0.0.0 --port ${PORT} 

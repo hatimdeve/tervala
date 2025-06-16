@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pandas
+openai
+python-multipart
+openpyxl
+python-dotenv
+sqlalchemy
+psycopg2-binary
+alembic
+pydantic[email]
