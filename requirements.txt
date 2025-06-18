@@ -9,3 +9,8 @@ sqlalchemy
 psycopg2-binary
 alembic
 pydantic[email]
+PyJWT==1.7.1
+requests
+httpx
+cryptography
+clerk

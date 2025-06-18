@@ -1,6 +1,6 @@
 import { GPTResponse } from "../types/gpt";
 import Logger from './logger';
-
+let sessionId: string | null = null;
 export type CleaningRule = {
   type: 'delete_rows' | 'format_column' | 'deduplicate';
   column: string;
@@ -17,6 +17,7 @@ export type ProcessPromptResponse = {
   data: any[][];
   message: string;
   gptResponse: GPTResponse;
+  session_id: string; 
 };
 
 interface DataRow {
@@ -45,7 +46,9 @@ export async function processPrompt(prompt: string, data: any[][], token: string
       component: "processPrompt",
       details: { endpoint: "/file/process" }
     });
-
+    if (!sessionId) {
+      sessionId = crypto.randomUUID(); // ou utilise Math.random... si crypto n’est pas dispo
+    }
     const processResponse = await fetch("http://localhost:8000/files/quick-process", {
       method: "POST",
       headers: {
@@ -58,10 +61,12 @@ export async function processPrompt(prompt: string, data: any[][], token: string
       credentials: 'include',
       body: JSON.stringify({
         data: objectData,
-        prompt: prompt
+        prompt: prompt,
+        session_id: sessionId,
+        
       }),
     });
-
+   
     Logger.debug("Statut de la réponse", { 
       component: "processPrompt",
       details: { 
@@ -114,11 +119,12 @@ export async function processPrompt(prompt: string, data: any[][], token: string
     const resultHeaders = Object.keys(processResult.data[0] || {});
     const resultRows = processResult.data.map((row: DataRow) => resultHeaders.map(header => row[header]));
     const resultData = [resultHeaders, ...resultRows];
-
+    sessionId = processResult.session_id;
     return {
       data: resultData,
       message: processResult.message,
-      gptResponse
+      gptResponse,
+      session_id: processResult.session_id
     };
 
   } catch (error) {

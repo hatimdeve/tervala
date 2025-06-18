@@ -17,7 +17,10 @@ import logging
 import traceback
 from datetime import datetime
 from app.utils.json_encoder import serialize_with_custom_encoder
-
+from app.services.chat import graph_with_memory
+from langchain_core.messages import HumanMessage
+import uuid
+from app.services.chat import get_session_history, memory_store,df_history_store  
 router = APIRouter(prefix="/files", tags=["files"])
 
 @router.post("/upload", response_model=FileProcessResponse)
@@ -119,30 +122,87 @@ async def quick_upload_file(request: Request, file: UploadFile = File(...)) -> D
 """)
         raise HTTPException(status_code=500, detail=str(e))
 
+# @router.post("/quick-process")
+# async def quick_process_file(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
+#     """
+#     Endpoint pour traiter un fichier avec une règle de nettoyage (rapide, sans base).
+#     """
+#     try:
+#         df = pd.DataFrame(data["data"])
+#         prompt = data["prompt"]
+#         df_result, message = await apply_user_rule(df, prompt)
+#         if "Salut" in message or "Bonjour" in message or "Hello" in message:
+#             content = {
+#                 "message": message,
+#                 "data": data["data"]
+#             }
+#         else:
+#             df_result = clean_numeric_values(df_result)
+#             result_data = df_result.to_dict('records')
+#             content = {
+#                 "message": message,
+#                 "data": result_data
+#             }
+#         return JSONResponse(content=json.loads(serialize_with_custom_encoder(content)))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 @router.post("/quick-process")
-async def quick_process_file(request: Request, data: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Endpoint pour traiter un fichier avec une règle de nettoyage (rapide, sans base).
-    """
+async def quick_process_file(request: Request):
     try:
-        df = pd.DataFrame(data["data"])
+        data = await request.json()
         prompt = data["prompt"]
-        df_result, message = await apply_user_rule(df, prompt)
-        if "Salut" in message or "Bonjour" in message or "Hello" in message:
-            content = {
-                "message": message,
-                "data": data["data"]
-            }
+        session_id = data.get("session_id") or str(uuid.uuid4())
+
+        # 🧠 Récupère l'historique de messages
+        chat_history = get_session_history(session_id)
+        previous_messages = chat_history.messages if hasattr(chat_history, "messages") else []
+
+        # 🧠 Récupère ou initialise df_history
+        if session_id in df_history_store:
+            df_history = df_history_store[session_id]
         else:
-            df_result = clean_numeric_values(df_result)
-            result_data = df_result.to_dict('records')
-            content = {
-                "message": message,
-                "data": result_data
-            }
-        return JSONResponse(content=json.loads(serialize_with_custom_encoder(content)))
+            df_initial = pd.DataFrame(data["data"])
+            df_initial = df_initial.replace(r'^\s*$', None, regex=True)
+            df_initial = df_initial.where(pd.notnull(df_initial), None)
+            df_initial.dropna(how="all", inplace=True)
+            df_history = [df_initial]
+
+        # ✅ Point de départ : dernier état connu du DataFrame
+        df = df_history[-1]
+
+        # 🧠 Construction de l’état LangGraph
+        state = {
+            "messages": [HumanMessage(content=prompt)],
+            "df": df,
+            "df_history": df_history,
+            "session_id": session_id
+        }
+
+        # 🔁 Appel à LangGraph avec mémoire
+        result = await graph_with_memory.ainvoke(
+            state,
+            config={"configurable": {"session_id": session_id}}
+        )
+
+        # 💾 Sauvegarde du df_history mis à jour
+        if "output" in result and "df_history" in result["output"]:
+            df_history_store[session_id] = result["output"]["df_history"]
+        else:
+            df_history_store[session_id] = result.get("df_history", [df.copy()])
+
+        # ✅ Réponse
+        df = result["df"].copy()
+        for col in df.select_dtypes(include=["datetime", "datetimetz"]):
+            df[col] = df[col].astype(str)
+        return JSONResponse(content={
+            "data": df.to_dict(orient="records"),
+            "message": result["message"],
+            "session_id": session_id
+        })
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/gpt")
 async def gpt_analyze(data: Dict[str, Any], request: Request) -> Dict[str, Any]:

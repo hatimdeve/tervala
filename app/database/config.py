@@ -7,7 +7,7 @@ import os
 load_dotenv()
 
 # Configuration de la base de données
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/tervela")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:123456@localhost:5432/tervela")
 
 # Création du moteur SQLAlchemy
 engine = create_engine(DATABASE_URL)

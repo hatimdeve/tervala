@@ -85,215 +85,222 @@ def clean_numeric_values(df: pd.DataFrame) -> pd.DataFrame:
         
     return df_clean
 
-# --- 🤖 Fonction GPT : application d'une règle utilisateur ---
+import pandas as pd
 
-from app.models.gpt_response import GPTResponse
+async def apply_user_rule(df: pd.DataFrame, prompt: str):
+    # 💡 Juste un test : on supprime les lignes où une colonne "Nom" est vide
+    df_cleaned = df.dropna(subset=["Nom"]) if "nom" in prompt.lower() else df
+    message = "✅ Les lignes sans 'Nom' ont été supprimées." if "nom" in prompt.lower() else "Aucune action nécessaire."
+    return df_cleaned, message
 
-async def apply_user_rule(df: pd.DataFrame, user_prompt: str) -> Tuple[Optional[pd.DataFrame], str]:
-    try:
-        # Convertir toutes les colonnes en chaînes de caractères
-        columns = [str(col) for col in df.columns.tolist()]
+
+# from app.models.gpt_response import GPTResponse
+
+# async def apply_user_rule(df: pd.DataFrame, user_prompt: str) -> Tuple[Optional[pd.DataFrame], str]:
+#     try:
+#         # Convertir toutes les colonnes en chaînes de caractères
+#         columns = [str(col) for col in df.columns.tolist()]
         
-        # Logs initiaux
-        print("\n" + "="*50)
-        print("👤 PROMPT UTILISATEUR:")
-        print(f"'{user_prompt}'")
-        print("="*50)
+#         # Logs initiaux
+#         print("\n" + "="*50)
+#         print("👤 PROMPT UTILISATEUR:")
+#         print(f"'{user_prompt}'")
+#         print("="*50)
 
-        # Détection de langue améliorée
-        english_phrases = [
-            'what', 'how', 'can you', 'could you', 'please', 'help', 'need', 'want',
-            'hey what', 'hi there', 'hello', "what's up", 'thanks', 'thank you'
-        ]
-        french_phrases = [
-            'bonjour', 'salut', 'peux-tu', 'pourrais-tu', 'aide-moi', "j'ai besoin",
-            'je voudrais', 'merci', "s'il te plaît", 'stp', 'comment'
-        ]
+#         # Détection de langue améliorée
+#         english_phrases = [
+#             'what', 'how', 'can you', 'could you', 'please', 'help', 'need', 'want',
+#             'hey what', 'hi there', 'hello', "what's up", 'thanks', 'thank you'
+#         ]
+#         french_phrases = [
+#             'bonjour', 'salut', 'peux-tu', 'pourrais-tu', 'aide-moi', "j'ai besoin",
+#             'je voudrais', 'merci', "s'il te plaît", 'stp', 'comment'
+#         ]
         
-        user_prompt_lower = user_prompt.lower()
-        english_matches = sum(1 for phrase in english_phrases if phrase in user_prompt_lower)
-        french_matches = sum(1 for phrase in french_phrases if phrase in user_prompt_lower)
-        has_french_chars = any(char in user_prompt_lower for char in 'éèêëàâäôöûüçîïœæ')
+#         user_prompt_lower = user_prompt.lower()
+#         english_matches = sum(1 for phrase in english_phrases if phrase in user_prompt_lower)
+#         french_matches = sum(1 for phrase in french_phrases if phrase in user_prompt_lower)
+#         has_french_chars = any(char in user_prompt_lower for char in 'éèêëàâäôöûüçîïœæ')
 
-        # Log de la détection de langue
-        print("\n🔍 DÉTECTION DE LANGUE:")
-        print(f"- Matches anglais: {english_matches}")
-        print(f"- Matches français: {french_matches}")
-        print(f"- Caractères français: {'Oui' if has_french_chars else 'Non'}")
-        print("="*50)
+#         # Log de la détection de langue
+#         print("\n🔍 DÉTECTION DE LANGUE:")
+#         print(f"- Matches anglais: {english_matches}")
+#         print(f"- Matches français: {french_matches}")
+#         print(f"- Caractères français: {'Oui' if has_french_chars else 'Non'}")
+#         print("="*50)
         
-        is_english = (english_matches > french_matches and not has_french_chars) or (
-            english_matches > 0 and french_matches == 0 and not has_french_chars
-        )
+#         is_english = (english_matches > french_matches and not has_french_chars) or (
+#             english_matches > 0 and french_matches == 0 and not has_french_chars
+#         )
 
-        # Construction du system prompt de base pour la manipulation des données
-        base_system_prompt = """You are a friendly data cleaning assistant. 🌟
+#         # Construction du system prompt de base pour la manipulation des données
+#         base_system_prompt = """You are a friendly data cleaning assistant. 🌟
 
-CRITICAL RULES:
+# CRITICAL RULES:
 
-1. LANGUAGE:
-   - If user speaks English → respond in English
-   - If user speaks French → respond in French
-   - NEVER mix languages
-   - Values in the data should match user's language (green/vert)
+# 1. LANGUAGE:
+#    - If user speaks English → respond in English
+#    - If user speaks French → respond in French
+#    - NEVER mix languages
+#    - Values in the data should match user's language (green/vert)
 
-2. CODE FORMAT:
-   You MUST use this EXACT format for code:
-   [Your friendly message]
-   ###PYTHON_CODE###
-   [Your Python code here]
-   ###END_CODE###
+# 2. CODE FORMAT:
+#    You MUST use this EXACT format for code:
+#    [Your friendly message]
+#    ###PYTHON_CODE###
+#    [Your Python code here]
+#    ###END_CODE###
 
-3. EXAMPLES:
-   ❌ WRONG:
-   "Sure! [Internal code: df = df[df['Catégorie'] == 'football']]"
+# 3. EXAMPLES:
+#    ❌ WRONG:
+#    "Sure! [Internal code: df = df[df['Catégorie'] == 'football']]"
    
-   ✅ CORRECT:
-   "Let's keep only the football category! ⚽️"
-   ###PYTHON_CODE###
-   df = df[df['Catégorie'].str.lower() == 'football']
-   ###END_CODE###
+#    ✅ CORRECT:
+#    "Let's keep only the football category! ⚽️"
+#    ###PYTHON_CODE###
+#    df = df[df['Catégorie'].str.lower() == 'football']
+#    ###END_CODE###
 
-4. RESPONSES:
-   - Be friendly and use emojis
-   - Keep it short and sweet
-   - NEVER explain technical details
-   - ALWAYS use ###PYTHON_CODE### format for code"""
+# 4. RESPONSES:
+#    - Be friendly and use emojis
+#    - Keep it short and sweet
+#    - NEVER explain technical details
+#    - ALWAYS use ###PYTHON_CODE### format for code"""
 
-        # Detect language and prepare instruction
-        is_french = any(word in user_prompt.lower() for word in ['bonjour', 'salut', 'peux', 'pouvez', 'voudrais', 'veux'])
+#         # Detect language and prepare instruction
+#         is_french = any(word in user_prompt.lower() for word in ['bonjour', 'salut', 'peux', 'pouvez', 'voudrais', 'veux'])
         
-        if is_french:
-            instruction = f"""Colonnes disponibles : {', '.join(columns)}
+#         if is_french:
+#             instruction = f"""Colonnes disponibles : {', '.join(columns)}
 
-Demande : "{user_prompt}"
+# Demande : "{user_prompt}"
 
-RÈGLES :
-1. Répondre UNIQUEMENT en français
-2. Être amical et utiliser des emojis
-3. Format EXACT pour le code :
-   [Message amical]
-   ###PYTHON_CODE###
-   [Code Python]
-   ###END_CODE###
-4. Utiliser les noms EXACTS des colonnes : {', '.join(columns)}"""
-        else:
-            instruction = f"""Available columns: {', '.join(columns)}
+# RÈGLES :
+# 1. Répondre UNIQUEMENT en français
+# 2. Être amical et utiliser des emojis
+# 3. Format EXACT pour le code :
+#    [Message amical]
+#    ###PYTHON_CODE###
+#    [Code Python]
+#    ###END_CODE###
+# 4. Utiliser les noms EXACTS des colonnes : {', '.join(columns)}"""
+#         else:
+#             instruction = f"""Available columns: {', '.join(columns)}
 
-Request: "{user_prompt}"
+# Request: "{user_prompt}"
 
-RULES:
-1. Respond ONLY in English
-2. Be friendly and use emojis
-3. EXACT format for code:
-   [Friendly message]
-   ###PYTHON_CODE###
-   [Python code]
-   ###END_CODE###
-4. Use EXACT column names: {', '.join(columns)}"""
+# RULES:
+# 1. Respond ONLY in English
+# 2. Be friendly and use emojis
+# 3. EXACT format for code:
+#    [Friendly message]
+#    ###PYTHON_CODE###
+#    [Python code]
+#    ###END_CODE###
+# 4. Use EXACT column names: {', '.join(columns)}"""
 
-        # Obtenir la réponse de GPT avec la nouvelle syntaxe
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": base_system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": instruction
-                }
-            ],
-            temperature=0.7
-        )
+#         # Obtenir la réponse de GPT avec la nouvelle syntaxe
+#         response = openai.ChatCompletion.create(
+#             model="gpt-4",
+#             messages=[
+#                 {
+#                     "role": "system",
+#                     "content": base_system_prompt
+#                 },
+#                 {
+#                     "role": "user",
+#                     "content": instruction
+#                 }
+#             ],
+#             temperature=0.7
+#         )
         
-        message_content = response.choices[0].message.content.strip()
+#         message_content = response.choices[0].message.content.strip()
         
-        # Parser la réponse avec notre nouvelle classe
-        gpt_response = GPTResponse.from_raw_response(message_content)
+#         # Parser la réponse avec notre nouvelle classe
+#         gpt_response = GPTResponse.from_raw_response(message_content)
         
-        # Logs détaillés de la réponse GPT
-        print("\n🤖 RÉPONSE GPT DÉTAILLÉE:")
-        print(f"- Type: {gpt_response.type}")
-        print(f"- Requiert du code: {gpt_response.requires_code}")
-        print(f"- Message: {gpt_response.message}")
-        if gpt_response.code:
-            print("\n🔧 CODE PYTHON GÉNÉRÉ:")
-            print(gpt_response.code)
+#         # Logs détaillés de la réponse GPT
+#         print("\n🤖 RÉPONSE GPT DÉTAILLÉE:")
+#         print(f"- Type: {gpt_response.type}")
+#         print(f"- Requiert du code: {gpt_response.requires_code}")
+#         print(f"- Message: {gpt_response.message}")
+#         if gpt_response.code:
+#             print("\n🔧 CODE PYTHON GÉNÉRÉ:")
+#             print(gpt_response.code)
         
-        # Si c'est une conversation, retourner directement
-        if gpt_response.type == "conversation" or not gpt_response.requires_code:
-            print("\n✨ RÉPONSE CONVERSATIONNELLE")
-            print("="*50)
-            return df, gpt_response.message
+#         # Si c'est une conversation, retourner directement
+#         if gpt_response.type == "conversation" or not gpt_response.requires_code:
+#             print("\n✨ RÉPONSE CONVERSATIONNELLE")
+#             print("="*50)
+#             return df, gpt_response.message
             
-        # Pour les opérations sur les données
-        if gpt_response.code:
-            # Sauvegarder l'état initial
-            rows_before = len(df)
-            df_before = df.copy()
+#         # Pour les opérations sur les données
+#         if gpt_response.code:
+#             # Sauvegarder l'état initial
+#             rows_before = len(df)
+#             df_before = df.copy()
             
-            # Exécuter le code
-            local_vars = {"df": df.copy(), "pd": pd, "re": re}
-            exec(gpt_response.code, {}, local_vars)
-            df = local_vars.get("df", df)
+#             # Exécuter le code
+#             local_vars = {"df": df.copy(), "pd": pd, "re": re}
+#             exec(gpt_response.code, {}, local_vars)
+#             df = local_vars.get("df", df)
             
-            # Nettoyer les valeurs numériques avant de continuer
-            df = clean_numeric_values(df)
+#             # Nettoyer les valeurs numériques avant de continuer
+#             df = clean_numeric_values(df)
             
-            # Afficher les résultats de l'opération
-            print("\n📊 RÉSULTATS DE L'OPÉRATION:")
-            rows_after = len(df)
+#             # Afficher les résultats de l'opération
+#             print("\n📊 RÉSULTATS DE L'OPÉRATION:")
+#             rows_after = len(df)
             
-            # Log des modifications de données
-            print("\n📈 STATISTIQUES:")
-            if rows_before != rows_after:
-                print(f"- Lignes avant: {rows_before}")
-                print(f"- Lignes après: {rows_after}")
-                print(f"- Lignes modifiées: {abs(rows_before - rows_after)}")
+#             # Log des modifications de données
+#             print("\n📈 STATISTIQUES:")
+#             if rows_before != rows_after:
+#                 print(f"- Lignes avant: {rows_before}")
+#                 print(f"- Lignes après: {rows_after}")
+#                 print(f"- Lignes modifiées: {abs(rows_before - rows_after)}")
             
-            # Vérifier les modifications de colonnes
-            changed_cols = []
-            for col in df.columns:
-                # Réinitialiser les index pour la comparaison
-                df_col = df[col].reset_index(drop=True)
-                df_before_col = df_before[col].reset_index(drop=True)
-                if not df_col.equals(df_before_col):
-                    changed_cols.append(col)
+#             # Vérifier les modifications de colonnes
+#             changed_cols = []
+#             for col in df.columns:
+#                 # Réinitialiser les index pour la comparaison
+#                 df_col = df[col].reset_index(drop=True)
+#                 df_before_col = df_before[col].reset_index(drop=True)
+#                 if not df_col.equals(df_before_col):
+#                     changed_cols.append(col)
             
-            if changed_cols:
-                print("\n🔄 COLONNES MODIFIÉES:")
-                for col in changed_cols:
-                    print(f"- {col}")
-                    # Afficher un échantillon des modifications
-                    try:
-                        # Utiliser une méthode plus robuste pour comparer
-                        df_merged = pd.merge(
-                            df_before[[col]].reset_index(),
-                            df[[col]].reset_index(),
-                            left_index=True,
-                            right_index=True,
-                            suffixes=('_before', '_after')
-                        )
-                        df_merged = df_merged[df_merged[f"{col}_before"] != df_merged[f"{col}_after"]]
-                        print("  Exemple de modifications:")
-                        for _, row in df_merged.head(3).iterrows():
-                            print(f"  • Avant: {row[f'{col}_before']}")
-                            print(f"    Après: {row[f'{col}_after']}")
-                    except Exception as e:
-                        print(f"  ⚠️ Impossible d'afficher les exemples: {str(e)}")
-        else:
-            print("\n❌ ERREUR:")
-            print("No code found in the response")
+#             if changed_cols:
+#                 print("\n🔄 COLONNES MODIFIÉES:")
+#                 for col in changed_cols:
+#                     print(f"- {col}")
+#                     # Afficher un échantillon des modifications
+#                     try:
+#                         # Utiliser une méthode plus robuste pour comparer
+#                         df_merged = pd.merge(
+#                             df_before[[col]].reset_index(),
+#                             df[[col]].reset_index(),
+#                             left_index=True,
+#                             right_index=True,
+#                             suffixes=('_before', '_after')
+#                         )
+#                         df_merged = df_merged[df_merged[f"{col}_before"] != df_merged[f"{col}_after"]]
+#                         print("  Exemple de modifications:")
+#                         for _, row in df_merged.head(3).iterrows():
+#                             print(f"  • Avant: {row[f'{col}_before']}")
+#                             print(f"    Après: {row[f'{col}_after']}")
+#                     except Exception as e:
+#                         print(f"  ⚠️ Impossible d'afficher les exemples: {str(e)}")
+#         else:
+#             print("\n❌ ERREUR:")
+#             print("No code found in the response")
             
-        print("="*50)
-        return df, gpt_response.message
+#         print("="*50)
+#         return df, gpt_response.message
             
-    except Exception as e:
-        print(f"\n❌ ERREUR: {str(e)}")
-        print("\n🔍 DÉTAILS DE L'ERREUR:")
-        import traceback
-        print(traceback.format_exc())
-        print("="*50)
-        raise e 
+#     except Exception as e:
+#         print(f"\n❌ ERREUR: {str(e)}")
+#         print("\n🔍 DÉTAILS DE L'ERREUR:")
+#         import traceback
+#         print(traceback.format_exc())
+#         print("="*50)
+#         raise e 
