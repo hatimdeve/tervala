@@ -5,6 +5,7 @@ from .processing_rule import ProcessingRule
 from .kpi_template import KPITemplate
 from .processing_history import ProcessingHistory
 from .gpt_response import GPTResponse, GPTResults
+from .history_cleaning import ActionHistory
 
 __all__ = [
     'Organization',
@@ -13,6 +14,7 @@ __all__ = [
     'ProcessingRule',
     'KPITemplate',
     'ProcessingHistory',
+    'ActionHistory',
     'GPTResponse',
     'GPTResults'
 ] 

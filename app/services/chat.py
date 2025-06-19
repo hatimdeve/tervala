@@ -8,6 +8,9 @@ from typing import Dict, Any, TypedDict, List
 import pandas as pd
 import re
 import uuid
+from langchain_core.prompts import PromptTemplate
+from app.database.config import get_db
+from app.models.history_cleaning import ActionHistory
 
 # 🧠 Mémoire de session
 memory_store = {}
@@ -40,6 +43,26 @@ DataFrame (extrait) :
 ])
 
 
+title_description_prompt = PromptTemplate.from_template("""
+Tu es un assistant intelligent. Génère un **titre** et une **courte description claire** (en une phrase) de l'action suivante appliquée à un DataFrame Pandas :
+
+Instruction utilisateur : "{instruction}"
+
+Code exécuté :
+```python
+{code}
+""")
+def generate_title_description(instruction: str, code: str) -> Dict[str, str]:
+    prompt_input = title_description_prompt.format(instruction=instruction, code=code)
+    response = llm.invoke(prompt_input)
+    
+    match_title = re.search(r"Titre\s*:\s*(.*)", response.content)
+    match_desc = re.search(r"Description\s*:\s*(.*)", response.content)
+    
+    return {
+        "title": match_title.group(1).strip() if match_title else "Action sans titre",
+        "description": match_desc.group(1).strip() if match_desc else "Pas de description générée."
+    }
 # 🔧 Génère du code à partir du prompt utilisateur
 def generate_code(df: pd.DataFrame, instruction: str) -> str:
     df_sample = df.head().to_string()
@@ -127,8 +150,29 @@ def decide_and_apply(state: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     df_new, message = exec_code_on_df(code, df)
-    df_history.append(df_new.copy()) 
+    meta = generate_title_description(instruction, code)
+    title, description = meta["title"], meta["description"]
 
+    # Tu peux maintenant logger, afficher ou sauvegarder ça :
+    print("🔖", title)
+    print("📝", description)
+    df_history.append(df_new.copy()) 
+# 📥 Sauvegarde BDD
+    try:
+      db = next(get_db())  # ✅ Récupère la vraie session depuis le générateur        
+      action = ActionHistory(
+        session_id=state["session_id"],
+        instruction=instruction,
+        generated_code=code,
+        title=title,
+        description=description
+    )
+      db.add(action)
+      db.commit()
+    except Exception as e:
+      print(f"❌ Erreur DB: {e}")
+    finally:
+      db.close()
     return {
         "df": df_new,
         "df_history": df_history,
