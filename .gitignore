@@ -6,7 +6,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
-.env
+.env/
 # Python
 __pycache__/
 *.pyc
