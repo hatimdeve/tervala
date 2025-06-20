@@ -30,4 +30,4 @@ ENV/
 # Autres
 *.swp
 *.swo
-.idea/
+.idea/.env
